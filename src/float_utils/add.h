@@ -11,8 +11,16 @@ namespace float_utils {
 		std::uint32_t xe = float_parts::get_exponent(x);
 		std::uint32_t ye = float_parts::get_exponent(y);
 
-		if (xe < ye) {
+		// Shifted left one bit to ensure that we have all fraction bits
+		// - If xe == ye, no valid digits will be generated after the last fraction bit
+		// - if xe > ye, the position of the top bit will move right by at most 1
+		std::uint32_t xf = (float_parts::get_fraction(x) << 1) | (2u << float_parts::num_fraction_bits);
+		std::uint32_t yf = (float_parts::get_fraction(y) << 1) | (2u << float_parts::num_fraction_bits);
+
+		const bool swap_xy = xe == ye ? xf < yf : xe < ye;
+		if (swap_xy) {
 			std::swap(xe, ye);
+			std::swap(xf, yf);
 			std::swap(x, y);
 		}
 		if (ye == 0) {
@@ -21,30 +29,27 @@ namespace float_utils {
 
 		const bool xp = float_parts::get_sign(x);
 		const bool yp = float_parts::get_sign(y);
-		const std::uint32_t xf = float_parts::get_fraction(x) | (1u << float_parts::num_fraction_bits);
-		const std::uint32_t yf = float_parts::get_fraction(y) | (1u << float_parts::num_fraction_bits);
 
-		constexpr std::uint32_t base_offset = 29u - float_parts::num_fraction_bits;
+		const std::uint32_t yfshiftr_bits = std::min(xe - ye, 31u);
+		const bool yftrunc = yf & ((1u << yfshiftr_bits) - 1);
+		const std::uint32_t yfv_unsigned = yf >> yfshiftr_bits;
+		const std::uint32_t yfv = xp == yp ? yfv_unsigned : ~yfv_unsigned + 1u;
 
-		const std::uint32_t xfshift_unsigned = xf << base_offset;
-		const std::uint32_t xfshift = xp ? ~xfshift_unsigned + 1u : xfshift_unsigned;
-
-		const int yfshiftl_bits = std::max(static_cast<int>(base_offset) - static_cast<int>(xe - ye), -31);
-		const std::uint32_t yfshift_unsigned = yfshiftl_bits > 0 ? (yf << yfshiftl_bits) : (yf >> -yfshiftl_bits);
-		const std::uint32_t yfshift = yp ? ~yfshift_unsigned + 1u : yfshift_unsigned;
-
-		const std::uint32_t rf_signed = xfshift + yfshift;
-		const bool rp = rf_signed & 0x80000000u;
-		const std::uint32_t rf_unsigned = rp ? ~rf_signed + 1u : rf_signed;
-		if (rf_unsigned == 0) {
+		const std::uint32_t rf_raw = xf + yfv;
+		if (rf_raw == 0) {
 			return 0.0f;
 		}
 
-		const std::uint32_t re_offset = std::countl_zero(rf_unsigned);
-		const std::uint32_t rf_align = rf_unsigned << re_offset;
+		const std::uint32_t re_offset = std::countl_zero(rf_raw);
+		const std::uint32_t rf_align = rf_raw << re_offset;
+		const bool rftrunc = rf_align & ((1u << (31 - float_parts::num_fraction_bits)) - 1u);
+		const std::uint32_t rf = rf_align >> (31u - float_parts::num_fraction_bits);
+		const std::uint32_t re = xe + (30 - re_offset - float_parts::num_fraction_bits);
+
+		const bool is_inf = (re >= (1u << float_parts::num_exponent_bits) - 1);
 
 		const rounding_mode rounding = Rounding == rounding_mode::system ? get_system_rounding_mode() : Rounding;
-		bool rounding_inc = false;
+		std::uint32_t rounding_inc = 0;
 		switch (rounding) {
 		case rounding_mode::downward:
 			// TODO
@@ -57,14 +62,15 @@ namespace float_utils {
 			rounding_inc = rf_align & (0x80000000u >> (float_parts::num_fraction_bits + 1));
 			break;
 		case rounding_mode::toward_zero:
-			rounding_inc = false;
+			rounding_inc = (xp != yp && !rftrunc && yftrunc) ? -1 : 0;
+			if (is_inf) {
+				constexpr float maxv = std::numeric_limits<float>::max();
+				return xp ? -maxv : maxv;
+			}
 			break;
 		}
 
-		const std::uint32_t rf = rf_align >> (31u - float_parts::num_fraction_bits);
-		const std::uint32_t re = xe + 2 - re_offset;
-		const float r_unrounded = float_parts::assemble(rp, re, rf);
-		const auto rbin = std::bit_cast<std::uint32_t>(r_unrounded) + (rounding_inc ? 1u : 0u);
+		const std::uint32_t rbin = float_parts::assemble_bits(xp, re, rf) + rounding_inc;
 		return std::bit_cast<float>(rbin);
 	}
 	template <rounding_mode RoundingMode = rounding_mode::system> inline float sub(float x, float y) {

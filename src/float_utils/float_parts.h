@@ -26,11 +26,13 @@ namespace float_parts {
 		return static_cast<std::int32_t>(get_exponent(x)) - exponent_offset;
 	}
 
-	[[nodiscard]] constexpr inline float assemble(bool sign, std::uint32_t exponent, std::uint32_t fraction) {
-		const std::uint32_t repr =
+	[[nodiscard]] constexpr inline std::uint32_t assemble_bits(bool sign, std::uint32_t exponent, std::uint32_t fraction) {
+		return
 			(sign ? 0x80000000u : 0u) |
 			((exponent << num_fraction_bits) & exponent_mask) |
 			(fraction & fraction_mask);
-		return std::bit_cast<float>(repr);
+	}
+	[[nodiscard]] constexpr inline float assemble(bool sign, std::uint32_t exponent, std::uint32_t fraction) {
+		return std::bit_cast<float>(assemble_bits(sign, exponent, fraction));
 	}
 }
