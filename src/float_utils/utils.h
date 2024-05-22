@@ -30,6 +30,19 @@ namespace float_utils {
 		std::abort();
 		return rounding_mode::system;
 	}
+	constexpr inline int to_fe_rounding_mode(rounding_mode mode) {
+		switch (mode) {
+		case rounding_mode::downward:
+			return FE_DOWNWARD;
+		case rounding_mode::upward:
+			return FE_UPWARD;
+		case rounding_mode::nearest:
+			return FE_TONEAREST;
+		case rounding_mode::toward_zero:
+			return FE_TOWARDZERO;
+		}
+		return FE_TOWARDZERO;
+	}
 	inline rounding_mode get_system_rounding_mode() {
 		return fe_rounding_to_rounding_mode(std::fegetround());
 	}

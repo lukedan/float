@@ -2,9 +2,11 @@
 
 #include "float_utils/add.h"
 
+constexpr auto rounding_mode = float_utils::rounding_mode::toward_zero;
+
 bool test(float x, float y) {
 	const float hw_res = x + y;
-	const float my_res = float_utils::add(x, y);
+	const float my_res = float_utils::add<rounding_mode>(x, y);
 
 	const auto hw_bin = std::bit_cast<std::uint32_t>(hw_res);
 	const auto my_bin = std::bit_cast<std::uint32_t>(my_res);
@@ -14,7 +16,7 @@ bool test(float x, float y) {
 
 	// Filter out nan/inf/denorm
 	const std::uint32_t he = float_parts::get_exponent(hw_res);
-	if (he == float_parts::exponent_mask || he == 0) {
+	if (/*he == float_parts::exponent_mask ||*/ he == 0) {
 		return true;
 	}
 
@@ -26,8 +28,7 @@ bool test(float x, float y) {
 }
 
 int main() {
-	/*std::fesetround(FE_TONEAREST);*/ // Does not quite match
-	std::fesetround(FE_TOWARDZERO);
+	std::fesetround(float_utils::to_fe_rounding_mode(rounding_mode));
 
 	/*
 	for (float x, y; ; ) {
@@ -44,7 +45,7 @@ int main() {
 	*/
 
 	std::default_random_engine rng(12345);
-	for (std::uint32_t i = 0; ; ++i) {
+	for (std::uint32_t i = 1; ; ++i) {
 		const float x = float_utils::random_float(rng);
 		const float y = float_utils::random_float(rng);
 
@@ -54,7 +55,7 @@ int main() {
 			std::cout << "----------\n";
 		}
 
-		if (i % 1000000 == 0) {
+		if (i % 10000000 == 0) {
 			std::cout <<
 				"Iter " << i << "\n" <<
 				"----------\n";
