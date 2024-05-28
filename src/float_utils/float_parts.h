@@ -9,6 +9,7 @@ namespace float_parts {
 
 	constexpr std::uint32_t fraction_mask = (1u << num_fraction_bits) - 1;
 	constexpr std::uint32_t exponent_mask = ((1u << num_exponent_bits) - 1) << num_fraction_bits;
+	constexpr std::uint32_t sign_mask = 1u << (num_fraction_bits + num_exponent_bits);
 
 	constexpr std::uint32_t exponent_offset = 127;
 

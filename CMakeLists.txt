@@ -3,9 +3,12 @@ project(float_testbed)
 
 set(COMMON_HEADERS
 	"src/float_utils/add.h"
+	"src/float_utils/category.h"
+	"src/float_utils/compare.h"
 	"src/float_utils/float_parts.h"
 	"src/float_utils/log2.h"
-	"src/float_utils/utils.h" "src/float_utils/mul.h")
+	"src/float_utils/mul.h"
+	"src/float_utils/utils.h")
 
 function(add_exec EXEC_NAME)
 	set(PROJ_NAME exec_${EXEC_NAME})
