@@ -11,7 +11,8 @@ namespace float_utils {
 	enum class rounding_mode {
 		downward,
 		upward,
-		nearest,
+		nearest_tie_to_even,
+		nearest_tie_to_infinity,
 		toward_zero,
 
 		system
@@ -23,7 +24,7 @@ namespace float_utils {
 		case FE_UPWARD:
 			return rounding_mode::upward;
 		case FE_TONEAREST:
-			return rounding_mode::nearest;
+			return rounding_mode::nearest_tie_to_even; // Default for IEEE 754
 		case FE_TOWARDZERO:
 			return rounding_mode::toward_zero;
 		}
@@ -36,7 +37,9 @@ namespace float_utils {
 			return FE_DOWNWARD;
 		case rounding_mode::upward:
 			return FE_UPWARD;
-		case rounding_mode::nearest:
+		case rounding_mode::nearest_tie_to_even:
+			[[fallthrough]];
+		case rounding_mode::nearest_tie_to_infinity:
 			return FE_TONEAREST;
 		case rounding_mode::toward_zero:
 			return FE_TOWARDZERO;

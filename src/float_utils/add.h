@@ -35,12 +35,11 @@ namespace float_utils {
 		const std::uint32_t yfshiftr_bits = std::min(xe - ye, 31u);
 		// Whether any 1 bits have been truncated from y during the shift
 		const bool yftrunc = yf & ((1u << yfshiftr_bits) - 1);
-		const std::uint32_t yfv_unsigned = yf >> yfshiftr_bits;
-		// Negate y's fraction if the signs are different
-		const std::uint32_t yfv = xp == yp ? yfv_unsigned : ~yfv_unsigned + 1u;
+		const std::uint32_t yfv_pos = yf >> yfshiftr_bits;
 
 		// Resulting fraction, guaranteed to be larger than 0 due to the swap
-		const std::uint32_t rf_raw = xf + yfv;
+		// Negate y's fraction if the signs are different
+		const std::uint32_t rf_raw = xp == yp ? xf + yfv_pos : xf - yfv_pos;
 		if (rf_raw == 0) {
 			return 0.0f;
 		}
@@ -89,9 +88,12 @@ namespace float_utils {
 				}
 			}
 			break;
-		case rounding_mode::nearest:
-			// TODO: Does not match hardware results when the discarded bits are exactly 100... (e.g. 321.65 + 354.31)
+		case rounding_mode::nearest_tie_to_even:
+			// TODO
 			rounding_inc = rf_align & (0x80000000u >> (float_parts::num_fraction_bits + 1));
+			break;
+		case rounding_mode::nearest_tie_to_infinity:
+			// TODO
 			break;
 		case rounding_mode::toward_zero:
 			// The sign does not matter - the only case where we need to further round down is when the number being

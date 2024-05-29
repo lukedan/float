@@ -5,6 +5,7 @@ set(COMMON_HEADERS
 	"src/float_utils/add.h"
 	"src/float_utils/category.h"
 	"src/float_utils/compare.h"
+	"src/float_utils/conversions.h"
 	"src/float_utils/float_parts.h"
 	"src/float_utils/log2.h"
 	"src/float_utils/mul.h"
@@ -21,5 +22,6 @@ function(add_exec EXEC_NAME)
 	target_compile_features(${PROJ_NAME} PRIVATE cxx_std_20)
 endfunction()
 
+add_exec(conversion)
 add_exec(add)
 add_exec(log2)
