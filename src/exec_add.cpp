@@ -2,7 +2,7 @@
 
 #include "float_utils/add.h"
 
-constexpr auto rounding_mode = float_utils::rounding_mode::toward_zero;
+constexpr auto rounding_mode = float_utils::rounding_mode::nearest_tie_to_even;
 
 bool test(float x, float y) {
 	const float hw_res = x + y;
@@ -30,29 +30,15 @@ bool test(float x, float y) {
 int main() {
 	std::fesetround(float_utils::to_fe_rounding_mode(rounding_mode));
 
-	/*
-	for (float x, y; ; ) {
-		std::cout << "x, y = ";
-		std::cin >> x >> y;
-		if (!std::cin) {
-			break;
-		}
-
-		test(x, y);
-
-		std::cout << "\n\n";
-	}
-	*/
-
 	std::default_random_engine rng(12345);
 	for (std::uint32_t i = 1; ; ++i) {
 		const float x = float_utils::random_float(rng);
 		const float y = float_utils::random_float(rng);
 
 		if (!test(x, y)) {
-			std::cout << "Iter " << i << ": " << x << " + " << y << "\n";
-			std::getchar();
-			std::cout << "----------\n";
+			std::cout <<
+				"Iter " << i << ": " << x << " + " << y << "\n" <<
+				"----------\n";
 		}
 
 		if (i % 10000000 == 0) {

@@ -33,9 +33,15 @@ namespace float_utils {
 
 		// y needs to be shifted right this many bits to align with x, clamped at 31
 		const std::uint32_t yfshiftr_bits = std::min(xe - ye, 31u);
-		// Whether any 1 bits have been truncated from y during the shift
-		const bool yftrunc = yf & ((1u << yfshiftr_bits) - 1);
-		const std::uint32_t yfv_pos = yf >> yfshiftr_bits;
+		// Record any 1 bits that have been truncated from y during the shift
+		std::uint32_t yftrunc = yfshiftr_bits == 0 ? 0 : (yf << (32 - yfshiftr_bits));
+		std::uint32_t yfv_pos = yf >> yfshiftr_bits;
+		// In the case that y is subtracted from x, increment y's fraction and negate the truncated the bits so that
+		// we always round towards the positive direction. This simplifies rounding by a lot
+		if (yftrunc && xp != yp) {
+			++yfv_pos;
+			yftrunc = ~yftrunc + 1u;
+		}
 
 		// Resulting fraction, guaranteed to be larger than 0 due to the swap
 		// Negate y's fraction if the signs are different
@@ -45,11 +51,15 @@ namespace float_utils {
 		}
 
 		const std::uint32_t re_offset = std::countl_zero(rf_raw);
-		const std::uint32_t rf_align = rf_raw << re_offset;
-		const bool rftrunc = rf_align & ((1u << (31 - float_parts::num_fraction_bits)) - 1u);
-		const std::uint32_t rf = rf_align >> (31u - float_parts::num_fraction_bits);
-		const std::uint32_t re = xe + (30 - re_offset - float_parts::num_fraction_bits);
+		const std::uint32_t rf = (rf_raw << re_offset) >> (31u - float_parts::num_fraction_bits);
+		const bool has_rftrunc = re_offset < 32 - (float_parts::num_fraction_bits + 1);
+		std::uint32_t rftrunc_bits = 0;
+		if (has_rftrunc) {
+			// In this case, we have produced extra bits. We need to record it for rounding purposes
+			rftrunc_bits = rf_raw << (re_offset + float_parts::num_fraction_bits + 1);
+		}
 
+		const std::uint32_t re = xe + (30 - re_offset - float_parts::num_fraction_bits);
 		const bool is_inf = (re >= (1u << float_parts::num_exponent_bits) - 1);
 
 		// Handle rounding
@@ -60,14 +70,11 @@ namespace float_utils {
 			if (xp) { // x is negative
 				// Round up - increment if there are truncated bits, either from the result or from y if it has the
 				// same sign as x
-				if (rftrunc || (yp && yftrunc)) {
+				if (rftrunc_bits || yftrunc) {
 					rounding_inc = 1;
 				}
 			} else { // !xp, x is positive
 				// Effectively round towards zero
-				if (yp && !rftrunc && yftrunc) {
-					rounding_inc = -1;
-				}
 				if (is_inf) {
 					return std::numeric_limits<float>::max();
 				}
@@ -76,30 +83,41 @@ namespace float_utils {
 		case rounding_mode::upward:
 			// Same as rounding_mode::downward, but with signs flipped
 			if (!xp) {
-				if (rftrunc || (!yp && yftrunc)) {
+				if (rftrunc_bits || yftrunc) {
 					rounding_inc = 1;
 				}
 			} else { // xp
-				if (!yp && !rftrunc && yftrunc) {
-					rounding_inc = -1;
-				}
 				if (is_inf) {
 					return -std::numeric_limits<float>::max();
 				}
 			}
 			break;
 		case rounding_mode::nearest_tie_to_even:
-			// TODO
-			rounding_inc = rf_align & (0x80000000u >> (float_parts::num_fraction_bits + 1));
-			break;
+			[[fallthrough]];
 		case rounding_mode::nearest_tie_to_infinity:
-			// TODO
+			{
+				const bool is_tie =
+					has_rftrunc ?
+					rftrunc_bits == 0x80000000u && yftrunc == 0 :
+					yftrunc == 0x80000000u;
+
+				if (is_tie) {
+					if (rounding == rounding_mode::nearest_tie_to_even) {
+						rounding_inc = (rf & 1u) ? 1u : 0u;
+					} else {
+						rounding_inc = 1; // Not verified - no hardware implementation
+					}
+				} else {
+					if (has_rftrunc) {
+						rounding_inc = (rftrunc_bits & 0x80000000u) ? 1 : 0;
+					} else {
+						rounding_inc = (yftrunc & 0x80000000u) ? 1 : 0;
+					}
+				}
+			}
 			break;
 		case rounding_mode::toward_zero:
-			// The sign does not matter - the only case where we need to further round down is when the number being
-			// subtracted has truncated bits but the result doesn't
-			rounding_inc = (xp != yp && !rftrunc && yftrunc) ? -1 : 0;
-			// Truncate inf to maximum non-inf value
+			// Truncate inf to maximum non-inf value, but otherwise nothing to do
 			if (is_inf) {
 				constexpr float maxv = std::numeric_limits<float>::max();
 				return xp ? -maxv : maxv;
