@@ -24,4 +24,5 @@ endfunction()
 
 add_exec(conversion)
 add_exec(add)
+add_exec(mul)
 add_exec(log2)
