@@ -14,9 +14,9 @@ bool test(float x, float y) {
 		return true;
 	}
 
-	// Filter out nan/inf/denorm
+	// Filter out denorm
 	const std::uint32_t he = float_parts::get_exponent(hw_res);
-	if (/*he == float_parts::exponent_mask ||*/ he == 0) {
+	if (he == 0) {
 		return true;
 	}
 
