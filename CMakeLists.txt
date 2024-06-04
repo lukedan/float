@@ -9,6 +9,7 @@ set(COMMON_HEADERS
 	"src/float_utils/float_parts.h"
 	"src/float_utils/log2.h"
 	"src/float_utils/mul.h"
+	"src/float_utils/rcp.h"
 	"src/float_utils/utils.h")
 
 function(add_exec EXEC_NAME)
@@ -25,4 +26,5 @@ endfunction()
 add_exec(conversion)
 add_exec(add)
 add_exec(mul)
+add_exec(rcp)
 add_exec(log2)
