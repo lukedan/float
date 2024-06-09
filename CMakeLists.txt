@@ -11,7 +11,8 @@ set(COMMON_HEADERS
 	"src/float_utils/mul.h"
 	"src/float_utils/rcp.h"
 	"src/float_utils/rounding.h"
-	"src/float_utils/utils.h")
+	"src/float_utils/utils.h"
+	"src/fuzz.h")
 
 function(add_exec EXEC_NAME)
 	set(PROJ_NAME exec_${EXEC_NAME})
