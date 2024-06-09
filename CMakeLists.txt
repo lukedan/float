@@ -6,6 +6,7 @@ set(COMMON_HEADERS
 	"src/float_utils/category.h"
 	"src/float_utils/compare.h"
 	"src/float_utils/conversions.h"
+	"src/float_utils/div.h"
 	"src/float_utils/float_parts.h"
 	"src/float_utils/log2.h"
 	"src/float_utils/mul.h"
@@ -29,5 +30,6 @@ add_exec(conversion)
 add_exec(rounding)
 add_exec(add)
 add_exec(mul)
+add_exec(div)
 add_exec(rcp)
 add_exec(log2)
