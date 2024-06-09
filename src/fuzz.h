@@ -12,6 +12,9 @@ void fuzz_binary_float_operator(
 	std::function<float(float, float)> my_ver,
 	std::string_view test_name
 ) {
+	std::uint32_t valid_tests = 0;
+	std::uint32_t finite_tests = 0;
+
 	auto test = [&](float x, float y) -> bool {
 		const float hw_res = sys_ver(x, y);
 		const float my_res = my_ver(x, y);
@@ -19,6 +22,10 @@ void fuzz_binary_float_operator(
 		const auto hw_bin = std::bit_cast<std::uint32_t>(hw_res);
 		const auto my_bin = std::bit_cast<std::uint32_t>(my_res);
 		if (hw_bin == my_bin) {
+			++valid_tests;
+			if (std::isfinite(hw_res)) {
+				++finite_tests;
+			}
 			return true;
 		}
 
@@ -35,6 +42,10 @@ void fuzz_binary_float_operator(
 		return false;
 	};
 
+	std::cout <<
+		"Starting fuzz test for " << test_name << "()\n" <<
+		"---------\n";
+
 	std::default_random_engine rng(12345);
 	for (std::uint32_t i = 1; ; ++i) {
 		const float x = float_utils::random_float(rng);
@@ -49,6 +60,8 @@ void fuzz_binary_float_operator(
 		if (i % 100000000 == 0) {
 			std::cout <<
 				"Iter " << i << "\n" <<
+				"Valid tests: " << 100.0f * valid_tests / static_cast<float>(i) << "%\n" <<
+				"Tests producing finite numbers: " << 100.0f * finite_tests / static_cast<float>(i) << "%\n" <<
 				"----------\n";
 		}
 	}
