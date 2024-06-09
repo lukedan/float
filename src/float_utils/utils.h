@@ -72,4 +72,69 @@ namespace float_utils {
 
 		return float_parts::assemble(s != 0, e, f);
 	}
+
+	float round_result(
+		rounding_mode rounding,
+		bool rp, std::uint32_t re, std::uint32_t rf,
+		std::uint32_t truncated_bits, bool is_inf
+	) {
+		std::uint32_t rounding_inc = 0;
+		switch (rounding) {
+		case rounding_mode::downward:
+			if (rp) { // Result is negative
+				// Round up - increment if there are truncated bits, either from the result or from y if it has the
+				// same sign as x
+				if (truncated_bits) {
+					rounding_inc = 1;
+				}
+			} else { // !rp, result is positive
+				// Effectively round towards zero
+				if (is_inf) {
+					return std::numeric_limits<float>::max();
+				}
+			}
+			break;
+		case rounding_mode::upward:
+			// Same as rounding_mode::downward, but with signs flipped
+			if (!rp) {
+				if (truncated_bits) {
+					rounding_inc = 1;
+				}
+			} else { // rp
+				if (is_inf) {
+					return -std::numeric_limits<float>::max();
+				}
+			}
+			break;
+		case rounding_mode::nearest_tie_to_even:
+			[[fallthrough]];
+		case rounding_mode::nearest_tie_to_infinity:
+			{
+				if (truncated_bits == 0x80000000u) {
+					if (rounding == rounding_mode::nearest_tie_to_even) {
+						rounding_inc = (rf & 1u) ? 1u : 0u;
+					} else {
+						rounding_inc = 1; // Not verified - no hardware implementation
+					}
+				} else {
+					rounding_inc = (truncated_bits & 0x80000000u) ? 1 : 0;
+				}
+			}
+			break;
+		case rounding_mode::toward_zero:
+			// Truncate inf to maximum non-inf value, but otherwise nothing to do
+			if (is_inf) {
+				constexpr float maxv = std::numeric_limits<float>::max();
+				return rp ? -maxv : maxv;
+			}
+			break;
+		}
+
+		// Handle proper inf by zeroing the fraction
+		if (is_inf) {
+			rf = 0;
+			rounding_inc = 0;
+		}
+		return std::bit_cast<float>(float_parts::assemble_bits(rp, re, rf) + rounding_inc);
+	}
 }

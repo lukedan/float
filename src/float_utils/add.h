@@ -51,7 +51,6 @@ namespace float_utils {
 		}
 
 		const std::uint32_t re_offset = std::countl_zero(rf_raw);
-		const std::uint32_t rf = (rf_raw << re_offset) >> (31u - float_parts::num_fraction_bits);
 		if (re_offset < 32 - (float_parts::num_fraction_bits + 1)) {
 			// In this case, we have produced extra bits. Merge them into the truncated bits
 			truncated_bits =
@@ -59,71 +58,14 @@ namespace float_utils {
 				(truncated_bits >> (32 - (re_offset + float_parts::num_fraction_bits + 1)));
 		}
 
+		const bool rp = xp;
 		const std::uint32_t re = xe + (30 - re_offset - float_parts::num_fraction_bits);
+		const std::uint32_t rf = (rf_raw << re_offset) >> (31u - float_parts::num_fraction_bits);
 		const bool is_inf = (re >= (1u << float_parts::num_exponent_bits) - 1);
 
-		// Handle rounding
+		// Round and return
 		const rounding_mode rounding = Rounding == rounding_mode::system ? get_system_rounding_mode() : Rounding;
-		std::uint32_t rounding_inc = 0;
-		switch (rounding) {
-		case rounding_mode::downward:
-			if (xp) { // x is negative
-				// Round up - increment if there are truncated bits, either from the result or from y if it has the
-				// same sign as x
-				if (truncated_bits) {
-					rounding_inc = 1;
-				}
-			} else { // !xp, x is positive
-				// Effectively round towards zero
-				if (is_inf) {
-					return std::numeric_limits<float>::max();
-				}
-			}
-			break;
-		case rounding_mode::upward:
-			// Same as rounding_mode::downward, but with signs flipped
-			if (!xp) {
-				if (truncated_bits) {
-					rounding_inc = 1;
-				}
-			} else { // xp
-				if (is_inf) {
-					return -std::numeric_limits<float>::max();
-				}
-			}
-			break;
-		case rounding_mode::nearest_tie_to_even:
-			[[fallthrough]];
-		case rounding_mode::nearest_tie_to_infinity:
-			{
-				if (truncated_bits == 0x80000000u) {
-					if (rounding == rounding_mode::nearest_tie_to_even) {
-						rounding_inc = (rf & 1u) ? 1u : 0u;
-					} else {
-						rounding_inc = 1; // Not verified - no hardware implementation
-					}
-				} else {
-					rounding_inc = (truncated_bits & 0x80000000u) ? 1 : 0;
-				}
-			}
-			break;
-		case rounding_mode::toward_zero:
-			// Truncate inf to maximum non-inf value, but otherwise nothing to do
-			if (is_inf) {
-				constexpr float maxv = std::numeric_limits<float>::max();
-				return xp ? -maxv : maxv;
-			}
-			break;
-		}
-
-		const std::uint32_t rbin = float_parts::assemble_bits(xp, re, rf) + rounding_inc;
-		if (rounding != rounding_mode::toward_zero) {
-			// Handle proper inf by zeroing the fraction
-			if ((rbin & float_parts::exponent_mask) == float_parts::exponent_mask) {
-				return std::bit_cast<float>(rbin & ~float_parts::fraction_mask);
-			}
-		}
-		return std::bit_cast<float>(rbin);
+		return round_result(rounding, rp, re, rf, truncated_bits, is_inf);
 	}
 	template <rounding_mode RoundingMode = rounding_mode::system> inline float sub(float x, float y) {
 		return add<RoundingMode>(x, -y);
